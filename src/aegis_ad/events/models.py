@@ -1,0 +1,166 @@
+"""Data models and geometry utilities for safety event rules."""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from typing import Any
+import uuid
+
+
+class EventConfigurationError(Exception):
+    """Raised when event or zone configuration is invalid."""
+
+
+def _is_point_on_segment(
+    px: float,
+    py: float,
+    ax: float,
+    ay: float,
+    bx: float,
+    by: float,
+    tol: float = 1e-7,
+) -> bool:
+    """Check if point (px, py) lies on the line segment from (ax, ay) to (bx, by)."""
+    # Check bounding box first
+    if not (min(ax, bx) - tol <= px <= max(ax, bx) + tol and min(ay, by) - tol <= py <= max(ay, by) + tol):
+        return False
+    # Cross product to check collinearity: (px - ax)*(by - ay) - (py - ay)*(bx - ax)
+    cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax)
+    return abs(cross) <= tol
+
+
+def point_in_polygon(point: tuple[float, float], polygon: list[tuple[float, float]]) -> bool:
+    """Return True if point (x, y) is inside or on the boundary of the polygon.
+
+    Uses a ray-casting algorithm (even-odd rule) with explicit edge-inclusion.
+    """
+    px, py = point
+    n = len(polygon)
+    if n < 3:
+        return False
+
+    # Check if point lies directly on any segment or vertex
+    for i in range(n):
+        ax, ay = polygon[i]
+        bx, by = polygon[(i + 1) % n]
+        if _is_point_on_segment(px, py, ax, ay, bx, by):
+            return True
+
+    # Standard ray casting to the right (+x direction)
+    inside = False
+    p1x, p1y = polygon[0]
+    for i in range(n):
+        p2x, p2y = polygon[(i + 1) % n]
+        # Check if the ray at y = py crosses the segment (p1, p2)
+        if (p1y > py) != (p2y > py):
+            # Compute x-coordinate of intersection
+            x_intersect = (p2x - p1x) * (py - p1y) / (p2y - p1y) + p1x
+            if px < x_intersect:
+                inside = not inside
+        p1x, p1y = p2x, p2y
+
+    return inside
+
+
+@dataclass(frozen=True, slots=True)
+class RestrictedZone:
+    """Configured spatial restricted zone on a camera view.
+
+    Coordinates in polygon are normalized to [0.0, 1.0] relative to frame dimensions.
+    """
+
+    zone_id: str
+    name: str
+    camera_id: str
+    polygon: tuple[tuple[float, float], ...]
+
+    def __post_init__(self) -> None:
+        if not self.zone_id or not isinstance(self.zone_id, str) or not self.zone_id.strip():
+            raise EventConfigurationError("zone_id must be a non-empty string.")
+        if not self.name or not isinstance(self.name, str) or not self.name.strip():
+            raise EventConfigurationError("name must be a non-empty string.")
+        if not self.camera_id or not isinstance(self.camera_id, str) or not self.camera_id.strip():
+            raise EventConfigurationError("camera_id must be a non-empty string.")
+
+        if not isinstance(self.polygon, (list, tuple)) or len(self.polygon) < 3:
+            raise EventConfigurationError(
+                f"Zone '{self.zone_id}': polygon must contain at least 3 vertices, got {len(self.polygon) if isinstance(self.polygon, (list, tuple)) else type(self.polygon).__name__}."
+            )
+
+        # Validate coordinates and convert to tuple of tuples if needed
+        cleaned_vertices: list[tuple[float, float]] = []
+        for idx, vertex in enumerate(self.polygon):
+            if not isinstance(vertex, (list, tuple)) or len(vertex) != 2:
+                raise EventConfigurationError(
+                    f"Zone '{self.zone_id}': vertex {idx} must be a 2-element sequence (x, y), got {vertex!r}."
+                )
+            vx, vy = vertex
+            if not isinstance(vx, (int, float)) or not isinstance(vy, (int, float)):
+                raise EventConfigurationError(
+                    f"Zone '{self.zone_id}': vertex {idx} coordinates must be numbers, got ({vx!r}, {vy!r})."
+                )
+            if not (math.isfinite(vx) and math.isfinite(vy)):
+                raise EventConfigurationError(
+                    f"Zone '{self.zone_id}': vertex {idx} coordinates must be finite, got ({vx!r}, {vy!r})."
+                )
+            if not (0.0 <= vx <= 1.0 and 0.0 <= vy <= 1.0):
+                raise EventConfigurationError(
+                    f"Zone '{self.zone_id}': vertex {idx} ({vx}, {vy}) outside normalized range [0.0, 1.0]."
+                )
+            cleaned_vertices.append((float(vx), float(vy)))
+
+        # Assign normalized tuple of vertices to frozen dataclass
+        object.__setattr__(self, "polygon", tuple(cleaned_vertices))
+
+    def contains_point(self, point: tuple[float, float]) -> bool:
+        """Check if a normalized point (x, y) is inside or on the boundary of the zone."""
+        return point_in_polygon(point, list(self.polygon))
+
+
+VALID_EVENT_TYPES = frozenset({
+    "restricted_area_entry",
+    "dwell_time_exceeded",
+})
+
+
+@dataclass(frozen=True, slots=True)
+class SafetyEvent:
+    """A detected safety event generated by event rules."""
+
+    event_id: str
+    event_type: str
+    camera_id: str
+    zone_id: str
+    zone_name: str
+    track_id: int
+    frame_index: int
+    timestamp_seconds: float
+    severity: str
+    details: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.event_id or not isinstance(self.event_id, str):
+            raise ValueError("event_id must be a non-empty string.")
+        if self.event_type not in VALID_EVENT_TYPES:
+            raise ValueError(
+                f"event_type must be one of {sorted(VALID_EVENT_TYPES)}, got '{self.event_type}'."
+            )
+        if not self.camera_id or not isinstance(self.camera_id, str):
+            raise ValueError("camera_id must be a non-empty string.")
+        if not self.zone_id or not isinstance(self.zone_id, str):
+            raise ValueError("zone_id must be a non-empty string.")
+        if not self.zone_name or not isinstance(self.zone_name, str):
+            raise ValueError("zone_name must be a non-empty string.")
+        if self.track_id < 1:
+            raise ValueError(f"track_id must be a positive integer, got {self.track_id}.")
+        if self.frame_index < 0:
+            raise ValueError(f"frame_index cannot be negative, got {self.frame_index}.")
+        if self.timestamp_seconds < 0.0 or not math.isfinite(self.timestamp_seconds):
+            raise ValueError(
+                f"timestamp_seconds must be a non-negative finite number, got {self.timestamp_seconds}."
+            )
+        if not self.severity or not isinstance(self.severity, str):
+            raise ValueError("severity must be a non-empty string.")
+        if not isinstance(self.details, dict):
+            raise ValueError("details must be a dictionary.")

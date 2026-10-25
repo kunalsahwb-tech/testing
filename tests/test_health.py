@@ -32,9 +32,10 @@ def test_health_check_succeeds(capsys: pytest.CaptureFixture):
     # Guard: must not contain the outdated stage-specific label
     assert "Stage 0" not in captured.out
     assert "Configuration: Loaded successfully" in captured.out
-    assert "Notice: Event processing and alerts have not been implemented yet." in captured.out
-    # Guard: must not claim tracking is unimplemented now that Stage 3 is complete
+    assert "Notice: Alert delivery and evidence handling have not been implemented yet." in captured.out
+    # Guard: must not claim tracking or event processing is unimplemented now that Stages 3 and 4 are complete
     assert "Tracking" not in captured.out
+    assert "Event processing" not in captured.out
 
 
 def test_health_check_fails_on_broken_config(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):

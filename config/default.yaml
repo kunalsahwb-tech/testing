@@ -30,6 +30,23 @@ tracking:
   track_buffer: 30         # Frames to retain a lost track before removing it
   match_thresh: 0.8        # IoU threshold for matching detections to existing tracks
 
+events:
+  enabled: true
+  person_class_id: 0
+  dwell_threshold_seconds: 30.0
+  absence_grace_seconds: 1.0
+  # Note: Polygon coordinates are normalized [0.0, 1.0] and serve as an illustrative
+  # example for CAM_01. Operators must calibrate zones to match the actual camera view.
+  zones:
+    - zone_id: "restricted_zone_01"
+      name: "Restricted Area"
+      camera_id: "CAM_01"
+      polygon:
+        - [0.65, 0.25]
+        - [0.95, 0.25]
+        - [0.95, 0.95]
+        - [0.65, 0.95]
+
 paths:
   data_dir: "data"
   videos_dir: "data/videos"

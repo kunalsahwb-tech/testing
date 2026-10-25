@@ -38,7 +38,7 @@ Each stage has explicit goals, deliverables, and acceptance criteria. A stage mu
 
 ---
 
-## Stage 3: Per-Camera Tracking (Current)
+## Stage 3: Per-Camera Tracking (Completed)
 - **Goal:** Assign stable track IDs to objects within a single camera stream using ByteTrack.
 - **Scope:**
   - Tracking data models (`TrackedObject`, `TrackedFrame`, `TrackingError`).
@@ -47,26 +47,23 @@ Each stage has explicit goals, deliverables, and acceptance criteria. A stage mu
   - Camera-ID binding to prevent silent cross-camera state corruption.
   - CLI pipeline smoke test: `VideoSource → YOLODetector → ObjectTracker` (`python -m aegis_ad.tracking`).
   - Configurable tracker thresholds in `config/default.yaml` under `tracking:`.
-- **Rules:** No cross-camera Re-ID, event rules, alerts, risk scoring, or evidence storage.
-  track_id values are per-camera and per-lifecycle only; they do not represent
-  cross-camera or globally unique identities.
 
 ---
 
-## Stage 3: Per-Camera Tracking (Planned)
-- **Goal:** Maintain stable track IDs within individual camera streams.
+## Stage 4: Safety Event Engine & Rules (Current)
+- **Goal:** Detect restricted area entries and dwell-time exceedances from tracked persons.
 - **Scope:**
-  - Per-camera tracking integration.
-  - Track trajectory and state maintenance.
-
----
-
-## Stage 4: Safety Event Engine & Rules (Planned)
-- **Goal:** Configurable rule evaluation against tracks and detections.
-- **Scope:**
-  - Zone boundary definitions (restricted areas).
-  - Dwell time / loitering rules.
-  - Structured event creation with timestamps, camera ID, track ID, and confidence.
+  - Event data models (`RestrictedZone`, `SafetyEvent`, `EventConfigurationError`).
+  - Ray-casting point-in-polygon geometry with boundary edge/vertex inclusion.
+  - Reference point calculation using normalized bottom-center point of bounding box.
+  - `EventEngine`:
+    - `restricted_area_entry`: Emitted when an observed person transitions from outside to inside a zone.
+    - `dwell_time_exceeded`: Emitted once per continuous episode when a person dwells >= configured threshold.
+    - Tracking gap tolerance via `absence_grace_seconds`.
+    - Camera-specific zone isolation and person class ID filtering.
+  - Configuration in `config/default.yaml` under `events:`.
+  - CLI safety event smoke test: `VideoSource → YOLODetector → ObjectTracker → EventEngine` (`python -m aegis_ad.events`).
+- **Rules:** No risk scoring, alert delivery, evidence storage, Re-ID, or web interface.
 
 ---
 

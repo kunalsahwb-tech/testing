@@ -35,7 +35,7 @@ def run_health_check() -> int:
     print(f"Environment: {app_env}")
     print(f"Configuration: Loaded successfully")
     print(f"Logging: Initialized ({settings.logging.get('level', 'INFO')})")
-    print("Notice: Event processing and alerts have not been implemented yet.")
+    print("Notice: Alert delivery and evidence handling have not been implemented yet.")
     return 0
 
 

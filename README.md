@@ -36,17 +36,23 @@ aegis-ad/
 │       │   ├── __main__.py    # Detection CLI smoke test
 │       │   ├── models.py      # BoundingBox, Detection, DetectionResult models
 │       │   └── detector.py    # YOLO detector wrapper (YOLO26n)
-│       └── tracking/          # Stage 3: Per-camera object tracking
-│           ├── __init__.py    # Tracking exports
-│           ├── __main__.py    # Tracking pipeline CLI smoke test
-│           ├── models.py      # TrackedObject, TrackedFrame, TrackingError models
-│           └── tracker.py     # ObjectTracker (ByteTrack adapter)
+│       ├── tracking/          # Stage 3: Per-camera object tracking
+│       │   ├── __init__.py    # Tracking exports
+│       │   ├── __main__.py    # Tracking pipeline CLI smoke test
+│       │   ├── models.py      # TrackedObject, TrackedFrame, TrackingError models
+│       │   └── tracker.py     # ObjectTracker (ByteTrack adapter)
+│       └── events/            # Stage 4: Safety event engine & rules
+│           ├── __init__.py    # Events exports
+│           ├── __main__.py    # Events pipeline CLI smoke test
+│           ├── models.py      # RestrictedZone, SafetyEvent models & geometry
+│           └── engine.py      # EventEngine rule processor
 ├── tests/
 │   ├── test_settings.py       # Configuration and validation tests
 │   ├── test_health.py         # Health check and logging tests
 │   ├── test_ingestion.py      # Video source and packet tests
 │   ├── test_detection.py      # Detection data model & mock inference tests
-│   └── test_tracking.py       # Tracking models, adapter, and pipeline tests
+│   ├── test_tracking.py       # Tracking models, adapter, and pipeline tests
+│   └── test_events.py         # Restricted zones, dwell time, and event engine tests
 ├── docs/
 │   └── DEVELOPMENT_STAGES.md  # Roadmap of project stages
 ├── data/                      # Local video and snapshot storage
@@ -91,6 +97,11 @@ python -m aegis_ad.detection --source data/videos/sample.mp4 --camera-id CAM_01 
 ### 7. Run Tracking Pipeline Smoke Test (Stage 3)
 ```powershell
 python -m aegis_ad.tracking --source data/videos/sample.mp4 --camera-id CAM_01 --max-frames 10
+```
+
+### 8. Run Safety Event Pipeline Smoke Test (Stage 4)
+```powershell
+python -m aegis_ad.events --source data/videos/sample.mp4 --camera-id CAM_01 --max-frames 10
 ```
 
 ---
