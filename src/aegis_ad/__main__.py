@@ -30,12 +30,12 @@ def run_health_check() -> int:
     logger.info("AEGIS-AD Foundation Health Check initialized.")
 
     print(f"AEGIS-AD Foundation v{__version__}")
-    print(f"Status: Healthy (Stage 0: Foundation)")
+    print("Status: Healthy")
     print(f"Application: {app_name}")
     print(f"Environment: {app_env}")
     print(f"Configuration: Loaded successfully")
     print(f"Logging: Initialized ({settings.logging.get('level', 'INFO')})")
-    print("Notice: CCTV ingestion, tracking, and vision pipelines are not active in Stage 0.")
+    print("Notice: Event processing and alerts have not been implemented yet.")
     return 0
 
 

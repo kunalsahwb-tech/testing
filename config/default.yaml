@@ -9,6 +9,27 @@ logging:
   format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
   log_file: "logs/aegis_ad.log"
 
+detection:
+  model_path: "yolo26n.pt"        # Pretrained YOLO26 nano model
+  confidence_threshold: 0.25
+  image_size: 640
+  device: "cpu"                   # Use "cuda" if a compatible GPU is available
+  # Classes filtered from COCO-80: person, bicycle, car, motorcycle, bus, truck
+  target_classes:
+    - 0   # person
+    - 1   # bicycle
+    - 2   # car
+    - 3   # motorcycle
+    - 5   # bus
+    - 7   # truck
+
+tracking:
+  track_high_thresh: 0.5   # Minimum confidence for high-confidence track activation
+  track_low_thresh: 0.1    # Minimum confidence for low-confidence candidate matching
+  new_track_thresh: 0.6    # Minimum confidence to start a new track
+  track_buffer: 30         # Frames to retain a lost track before removing it
+  match_thresh: 0.8        # IoU threshold for matching detections to existing tracks
+
 paths:
   data_dir: "data"
   videos_dir: "data/videos"

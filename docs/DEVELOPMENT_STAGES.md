@@ -5,7 +5,7 @@ Each stage has explicit goals, deliverables, and acceptance criteria. A stage mu
 
 ---
 
-## Stage 0: Project Foundation (Current)
+## Stage 0: Project Foundation (Completed)
 - **Goal:** Establish a clean, testable repository foundation.
 - **Deliverables:**
   - Standard `src/aegis_ad` package structure.
@@ -17,21 +17,39 @@ Each stage has explicit goals, deliverables, and acceptance criteria. A stage mu
 
 ---
 
-## Stage 1: Video Ingestion (Planned)
+## Stage 1: Video Ingestion (Completed)
 - **Goal:** Robust frame capture and streaming abstraction.
 - **Scope:**
-  - Local MP4 and video file source abstraction.
-  - Basic RTSP stream connector with error handling and reconnection logic.
-  - Frame generator with proper timestamping and resource management.
+  - Local MP4 video file source abstraction (`VideoSource`).
+  - FramePacket and VideoMetadata data models.
+  - Strict FPS validation and frame-index-based timestamping.
+  - Automatic resource cleanup.
 
 ---
 
-## Stage 2: Object Detection (Planned)
-- **Goal:** Inference pipeline for safety-relevant objects.
+## Stage 2: Object Detection (Completed)
+- **Goal:** Inference pipeline for safety-relevant objects using pretrained YOLO26n.
 - **Scope:**
-  - Standard detection interface (persons, vehicles).
-  - Model loader and batch/frame processor.
-  - Structured detection outputs (bounding boxes, class labels, confidence scores).
+  - Detection data models (`BoundingBox`, `Detection`, `DetectionResult`).
+  - YOLODetector wrapping Ultralytics YOLO26n.
+  - Filter for target classes (person, bicycle, car, motorcycle, bus, truck).
+  - CLI detection smoke test (`python -m aegis_ad.detection`).
+- **Rules:** No tracking, Re-ID, event rules, alerts, or custom model training.
+
+---
+
+## Stage 3: Per-Camera Tracking (Current)
+- **Goal:** Assign stable track IDs to objects within a single camera stream using ByteTrack.
+- **Scope:**
+  - Tracking data models (`TrackedObject`, `TrackedFrame`, `TrackingError`).
+  - `ObjectTracker` adapter wrapping `ultralytics.trackers.byte_tracker.BYTETracker`.
+  - Per-camera tracker lifecycle with explicit `reset()` for new video or stream sessions.
+  - Camera-ID binding to prevent silent cross-camera state corruption.
+  - CLI pipeline smoke test: `VideoSource → YOLODetector → ObjectTracker` (`python -m aegis_ad.tracking`).
+  - Configurable tracker thresholds in `config/default.yaml` under `tracking:`.
+- **Rules:** No cross-camera Re-ID, event rules, alerts, risk scoring, or evidence storage.
+  track_id values are per-camera and per-lifecycle only; they do not represent
+  cross-camera or globally unique identities.
 
 ---
 

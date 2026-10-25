@@ -50,6 +50,14 @@ data/evidence/*
 data/snapshots/*
 !data/snapshots/.gitkeep
 
+# Model Weights
+*.pt
+*.pth
+*.onnx
+*.engine
+models/*
+!models/.gitkeep
+
 # IDE and Editor
 .vscode/
 .idea/

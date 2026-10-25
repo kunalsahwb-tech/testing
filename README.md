@@ -26,15 +26,27 @@ aegis-ad/
 │       ├── __main__.py        # CLI entrypoint and health check
 │       ├── settings.py        # Configuration loading and validation
 │       ├── logging_setup.py   # Logging initialization
-│       └── ingestion/         # Stage 1: Video ingestion
-│           ├── __init__.py    # Ingestion exports
-│           ├── __main__.py    # Ingestion CLI smoke test
-│           ├── models.py      # VideoMetadata and FramePacket models
-│           └── video_source.py# VideoSource reader
+│       ├── ingestion/         # Stage 1: Video ingestion
+│       │   ├── __init__.py    # Ingestion exports
+│       │   ├── __main__.py    # Ingestion CLI smoke test
+│       │   ├── models.py      # VideoMetadata and FramePacket models
+│       │   └── video_source.py# VideoSource reader
+│       ├── detection/         # Stage 2: Object detection
+│       │   ├── __init__.py    # Detection exports
+│       │   ├── __main__.py    # Detection CLI smoke test
+│       │   ├── models.py      # BoundingBox, Detection, DetectionResult models
+│       │   └── detector.py    # YOLO detector wrapper (YOLO26n)
+│       └── tracking/          # Stage 3: Per-camera object tracking
+│           ├── __init__.py    # Tracking exports
+│           ├── __main__.py    # Tracking pipeline CLI smoke test
+│           ├── models.py      # TrackedObject, TrackedFrame, TrackingError models
+│           └── tracker.py     # ObjectTracker (ByteTrack adapter)
 ├── tests/
 │   ├── test_settings.py       # Configuration and validation tests
 │   ├── test_health.py         # Health check and logging tests
-│   └── test_ingestion.py      # Video source and packet tests
+│   ├── test_ingestion.py      # Video source and packet tests
+│   ├── test_detection.py      # Detection data model & mock inference tests
+│   └── test_tracking.py       # Tracking models, adapter, and pipeline tests
 ├── docs/
 │   └── DEVELOPMENT_STAGES.md  # Roadmap of project stages
 ├── data/                      # Local video and snapshot storage
@@ -70,3 +82,20 @@ python -m aegis_ad
 ```powershell
 python -m aegis_ad.ingestion --source data/videos/sample.mp4 --camera-id CAM_01 --max-frames 10
 ```
+
+### 6. Run Object Detection Smoke Test (Stage 2)
+```powershell
+python -m aegis_ad.detection --source data/videos/sample.mp4 --camera-id CAM_01 --max-frames 10
+```
+
+### 7. Run Tracking Pipeline Smoke Test (Stage 3)
+```powershell
+python -m aegis_ad.tracking --source data/videos/sample.mp4 --camera-id CAM_01 --max-frames 10
+```
+
+---
+
+## Licensing & Third-Party Dependencies
+
+- **Project Licence:** AEGIS-AD is distributed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
+- **Ultralytics YOLO:** Object detection uses the [Ultralytics](https://github.com/ultralytics/ultralytics) Python package and pretrained YOLO models, licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](https://github.com/ultralytics/ultralytics/blob/main/LICENSE). Model weights are downloaded dynamically on demand and are not stored in source control.
