@@ -41,18 +41,28 @@ aegis-ad/
 │       │   ├── __main__.py    # Tracking pipeline CLI smoke test
 │       │   ├── models.py      # TrackedObject, TrackedFrame, TrackingError models
 │       │   └── tracker.py     # ObjectTracker (ByteTrack adapter)
-│       └── events/            # Stage 4: Safety event engine & rules
-│           ├── __init__.py    # Events exports
-│           ├── __main__.py    # Events pipeline CLI smoke test
-│           ├── models.py      # RestrictedZone, SafetyEvent models & geometry
-│           └── engine.py      # EventEngine rule processor
+│       ├── events/            # Stage 4: Safety event engine & rules
+│       │   ├── __init__.py    # Events exports
+│       │   ├── __main__.py    # Events & alerts pipeline CLI smoke test
+│       │   ├── models.py      # RestrictedZone, SafetyEvent models & geometry
+│       │   └── engine.py      # EventEngine rule processor
+│       ├── evidence/          # Stage 5: Evidence capture & storage
+│       │   ├── __init__.py    # Evidence exports
+│       │   └── store.py       # EvidenceStore snapshot management
+│       └── alerts/            # Stage 5: Alert delivery & persistence
+│           ├── __init__.py    # Alerts exports
+│           ├── models.py      # Alert data model and status formatting
+│           ├── repository.py  # SQLite alert repository
+│           └── service.py     # AlertService orchestration
 ├── tests/
 │   ├── test_settings.py       # Configuration and validation tests
 │   ├── test_health.py         # Health check and logging tests
 │   ├── test_ingestion.py      # Video source and packet tests
 │   ├── test_detection.py      # Detection data model & mock inference tests
 │   ├── test_tracking.py       # Tracking models, adapter, and pipeline tests
-│   └── test_events.py         # Restricted zones, dwell time, and event engine tests
+│   ├── test_events.py         # Restricted zones, dwell time, and event engine tests
+│   ├── test_evidence.py       # Evidence snapshot capture and file management tests
+│   └── test_alerts.py         # Alert model, repository, and service tests
 ├── docs/
 │   └── DEVELOPMENT_STAGES.md  # Roadmap of project stages
 ├── data/                      # Local video and snapshot storage
@@ -99,10 +109,11 @@ python -m aegis_ad.detection --source data/videos/sample.mp4 --camera-id CAM_01 
 python -m aegis_ad.tracking --source data/videos/sample.mp4 --camera-id CAM_01 --max-frames 10
 ```
 
-### 8. Run Safety Event Pipeline Smoke Test (Stage 4)
+### 8. Run Safety Event & Alert Pipeline Smoke Test (Stages 4 & 5)
 ```powershell
 python -m aegis_ad.events --source data/videos/sample.mp4 --camera-id CAM_01 --max-frames 10
 ```
+Connects `VideoSource → YOLODetector → ObjectTracker → EventEngine → AlertService → EvidenceStore & SQLite AlertRepository`.
 
 ---
 

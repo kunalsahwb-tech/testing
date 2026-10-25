@@ -9,8 +9,12 @@ import argparse
 import sys
 from pathlib import Path
 
+from aegis_ad.alerts.models import Alert
+from aegis_ad.alerts.repository import AlertRepository
+from aegis_ad.alerts.service import AlertService
 from aegis_ad.detection.detector import YOLODetector
 from aegis_ad.detection.models import DetectionError
+from aegis_ad.evidence.store import EvidenceStore
 from aegis_ad.events.engine import EventEngine
 from aegis_ad.events.models import EventConfigurationError, SafetyEvent
 from aegis_ad.ingestion.models import IngestionError
@@ -39,6 +43,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Compute device: cpu or cuda:N (overrides config).")
     parser.add_argument("--dwell", type=float, default=None,
                         help="Override dwell threshold in seconds.")
+    parser.add_argument("--db-path", type=str, default=None,
+                        help="Path to alerts SQLite database (overrides config).")
+    parser.add_argument("--evidence-dir", type=str, default=None,
+                        help="Directory for saving evidence snapshots (overrides config).")
     return parser
 
 
@@ -59,6 +67,8 @@ def run_cli(args: list[str] | None = None) -> int:
         det_cfg = settings.raw.get("detection", {})
         trk_cfg = settings.raw.get("tracking", {})
         evt_cfg = settings.raw.get("events", {})
+        alerts_cfg = settings.raw.get("alerts", {})
+        evidence_cfg = settings.raw.get("evidence", {})
     except ConfigurationError as exc:
         print(f"[ERROR] Configuration failed: {exc}", file=sys.stderr)
         return 1
@@ -84,14 +94,32 @@ def run_cli(args: list[str] | None = None) -> int:
         evt_cfg = dict(evt_cfg)
         evt_cfg["dwell_threshold_seconds"] = dwell_override
 
+    # Alert and evidence parameters
+    db_path = parsed.db_path or alerts_cfg.get("db_path", "data/alerts.db")
+    evidence_dir = parsed.evidence_dir or evidence_cfg.get(
+        "evidence_dir",
+        settings.raw.get("paths", {}).get("evidence_dir", "data/evidence"),
+    )
+
     max_frames = parsed.max_frames if parsed.max_frames > 0 else None
     camera_id = parsed.camera_id
 
     print("=" * 56)
     print(" AEGIS-AD Safety Event Pipeline Smoke Test")
     print("=" * 56)
-    print(f"Model:       {model_path} ({device})")
-    print(f"Confidence:  {confidence}")
+    print(f"Model:        {model_path} ({device})")
+    print(f"Confidence:   {confidence}")
+    print(f"Alerts DB:    {db_path}")
+    print(f"Evidence Dir: {evidence_dir}")
+
+    # Initialise alert repository and evidence store
+    try:
+        alert_repo = AlertRepository(db_path=Path(db_path))
+        evidence_store = EvidenceStore(evidence_dir=Path(evidence_dir))
+        alert_service = AlertService(repository=alert_repo, evidence_store=evidence_store)
+    except Exception as exc:
+        print(f"[ERROR] Alert service initialisation failed: {exc}", file=sys.stderr)
+        return 1
 
     # Initialise video source
     try:
@@ -156,6 +184,10 @@ def run_cli(args: list[str] | None = None) -> int:
     total_detections = 0
     total_tracked = 0
     all_events: list[SafetyEvent] = []
+    all_alerts: list[Alert] = []
+    evidence_captured = 0
+    evidence_failed = 0
+    evidence_none = 0
 
     try:
         for packet in video.read_frames(max_frames=max_frames):
@@ -193,11 +225,24 @@ def run_cli(args: list[str] | None = None) -> int:
                 )
             else:
                 for evt in new_events:
+                    alert = alert_service.process_event(event=evt, frame=packet.frame)
+                    all_alerts.append(alert)
+                    if alert.evidence_status == "captured":
+                        evidence_captured += 1
+                    elif alert.evidence_status == "failed":
+                        evidence_failed += 1
+                    else:
+                        evidence_none += 1
+
+                    ev_info = f"evidence={alert.evidence_status}"
+                    if alert.evidence_path:
+                        ev_info += f" ({alert.evidence_path})"
+
                     print(
                         f"[{evt.camera_id}] Frame {evt.frame_index:04d} | "
                         f"Time: {evt.timestamp_seconds:6.3f}s | "
                         f"[ALERT: {evt.event_type.upper()}] track={evt.track_id} "
-                        f"zone='{evt.zone_name}' sev={evt.severity}"
+                        f"zone='{evt.zone_name}' sev={evt.severity} | {ev_info}"
                     )
     except Exception as exc:
         print(f"[ERROR] Unexpected failure during processing: {exc}", file=sys.stderr)
@@ -214,6 +259,11 @@ def run_cli(args: list[str] | None = None) -> int:
             events_by_type[ev.event_type] = events_by_type.get(ev.event_type, 0) + 1
         for etype, count in events_by_type.items():
             print(f"    - {etype}: {count}")
+    print(f"  Alerts generated:     {len(all_alerts)}")
+    print(f"  Evidence captured:    {evidence_captured}")
+    if evidence_failed > 0:
+        print(f"  Evidence failures:    {evidence_failed}")
+    print(f"  Alerts database:      {db_path}")
     if total_frames > 0 and total_detections == 0:
         print("  Note: Zero detections on synthetic sample video is expected.")
     print("=" * 56)

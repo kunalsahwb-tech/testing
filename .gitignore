@@ -50,6 +50,14 @@ data/evidence/*
 data/snapshots/*
 !data/snapshots/.gitkeep
 
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
 # Model Weights
 *.pt
 *.pth

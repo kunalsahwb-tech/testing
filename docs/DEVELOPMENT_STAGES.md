@@ -50,7 +50,7 @@ Each stage has explicit goals, deliverables, and acceptance criteria. A stage mu
 
 ---
 
-## Stage 4: Safety Event Engine & Rules (Current)
+## Stage 4: Safety Event Engine & Rules (Completed)
 - **Goal:** Detect restricted area entries and dwell-time exceedances from tracked persons.
 - **Scope:**
   - Event data models (`RestrictedZone`, `SafetyEvent`, `EventConfigurationError`).
@@ -63,15 +63,19 @@ Each stage has explicit goals, deliverables, and acceptance criteria. A stage mu
     - Camera-specific zone isolation and person class ID filtering.
   - Configuration in `config/default.yaml` under `events:`.
   - CLI safety event smoke test: `VideoSource → YOLODetector → ObjectTracker → EventEngine` (`python -m aegis_ad.events`).
-- **Rules:** No risk scoring, alert delivery, evidence storage, Re-ID, or web interface.
 
 ---
 
-## Stage 5: Evidence Management & Alerts (Planned)
-- **Goal:** Alert generation with traceable media evidence.
+## Stage 5: Alert Delivery & Evidence Handling (Current)
+- **Goal:** Alert generation with traceable media evidence snapshots and SQLite persistence.
 - **Scope:**
-  - Event snapshots and clip clipping/referencing.
-  - Alert notification formatting and evidence indexing.
+  - Alert data models (`Alert`, `AlertError`, status constraints, readable titles/messages).
+  - Evidence store (`EvidenceStore`) capturing and persisting JPEG snapshots with safe filenames and non-blocking failure reporting.
+  - Persistent alert repository (`AlertRepository`) with SQLite indexing, parameterized queries, and idempotent event storage.
+  - Alert service (`AlertService`) orchestrating `SafetyEvent → EvidenceStore → AlertRepository`.
+  - Integrated safety pipeline smoke test (`python -m aegis_ad.events`).
+  - Configurable database and evidence directories under `alerts:` and `evidence:` in `config/default.yaml`.
+- **Rules:** No web dashboard, REST API, WebSocket notifications, cross-camera Re-ID, LPR, or AI investigator.
 
 ---
 

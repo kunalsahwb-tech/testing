@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import pytest
 
 from aegis_ad.events.engine import EventEngine
@@ -637,3 +638,77 @@ def test_event_cli_dwell_override_applied():
     assert code == 0
     assert len(engines_created) == 1
     assert engines_created[0].dwell_threshold_seconds == pytest.approx(12.5)
+
+
+def test_event_cli_alert_and_evidence_integration(tmp_path: Path):
+    """Verify that events generated during CLI execution result in stored alerts and captured evidence."""
+    from aegis_ad.events.__main__ import run_cli
+    from aegis_ad.alerts.repository import AlertRepository
+    import numpy as np
+
+    db_path = tmp_path / "alerts.db"
+    evidence_dir = tmp_path / "evidence"
+    dummy_source = tmp_path / "sample.mp4"
+    dummy_source.touch()
+
+    # Synthetic frame packet
+    frame_arr = np.zeros((480, 640, 3), dtype=np.uint8)
+    packet1 = MagicMock()
+    packet1.frame = frame_arr
+    packet1.frame_index = 0
+    packet1.timestamp_seconds = 0.0
+
+    packet2 = MagicMock()
+    packet2.frame = frame_arr
+    packet2.frame_index = 1
+    packet2.timestamp_seconds = 1.0
+
+    mock_video = MagicMock()
+    mock_video.metadata.camera_id = "CAM_01"
+    mock_video.metadata.source_path = str(dummy_source)
+    mock_video.metadata.width = 640
+    mock_video.metadata.height = 480
+    mock_video.metadata.fps = 25.0
+    mock_video.read_frames.return_value = iter([packet1, packet2])
+
+    # Detector returns dummy detections
+    mock_detector = MagicMock()
+    mock_detector.detect.return_value = DetectionResult(
+        camera_id="CAM_01", frame_index=0, timestamp_seconds=0.0,
+        detections=[], inference_time_ms=1.0,
+    )
+
+    # Frame 0: person outside zone (0.5..1.0)
+    p_outside = _make_tracked_obj(track_id=1, x1=50.0, y1=50.0, x2=100.0, y2=100.0)
+    tf0 = TrackedFrame(camera_id="CAM_01", frame_index=0, timestamp_seconds=0.0, tracked_objects=[p_outside])
+
+    # Frame 1: person moves inside zone (0.5..1.0) -> (bottom-center at 400, 400 -> norm 400/640=0.625, 400/480=0.833)
+    p_inside = _make_tracked_obj(track_id=1, x1=350.0, y1=350.0, x2=450.0, y2=400.0)
+    tf1 = TrackedFrame(camera_id="CAM_01", frame_index=1, timestamp_seconds=1.0, tracked_objects=[p_inside])
+
+    mock_tracker = MagicMock()
+    mock_tracker.update.side_effect = [tf0, tf1]
+
+    with (
+        patch("aegis_ad.events.__main__.load_settings", return_value=_make_mock_event_settings()),
+        patch("aegis_ad.events.__main__.VideoSource", return_value=mock_video),
+        patch("aegis_ad.events.__main__.YOLODetector", return_value=mock_detector),
+        patch("aegis_ad.events.__main__.ObjectTracker", return_value=mock_tracker),
+    ):
+        code = run_cli([
+            "--source", str(dummy_source),
+            "--db-path", str(db_path),
+            "--evidence-dir", str(evidence_dir),
+        ])
+
+    assert code == 0
+    assert db_path.exists()
+
+    repo = AlertRepository(db_path=db_path)
+    alerts = repo.list_recent()
+    assert len(alerts) == 1
+    assert alerts[0].event_type == "restricted_area_entry"
+    assert alerts[0].evidence_status == "captured"
+    assert alerts[0].evidence_path is not None
+    assert Path(alerts[0].evidence_path).is_file()
+
