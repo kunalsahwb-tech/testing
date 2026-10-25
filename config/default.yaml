@@ -1,0 +1,17 @@
+app:
+  name: "AEGIS-AD Preventive AI Safety System"
+  version: "0.1.0"
+  env: "development"
+  debug: false
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  log_file: "logs/aegis_ad.log"
+
+paths:
+  data_dir: "data"
+  videos_dir: "data/videos"
+  evidence_dir: "data/evidence"
+  snapshots_dir: "data/snapshots"
+  logs_dir: "logs"
